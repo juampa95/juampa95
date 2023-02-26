@@ -1,1 +1,1 @@
-![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=juampa95&theme=dark&show_icons=true&locale=es)![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=juampa95&theme=dark&show_icons=true&locale=es)
+![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=juampa95&theme=dark&show_icons=true&locale=es) ![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=juampa95&theme=dark&show_icons=true&locale=es)
