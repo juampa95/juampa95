@@ -36,12 +36,3 @@ I build data platforms and bring AI into production, turning data into value for
 </p>
 
 <p align="center"><sub>Includes activity in private and organization repositories (repository names are never shown). Updated daily by a GitHub Action.</sub></p>
-
-### Public projects
-
-| Project | Description |
-|---|---|
-| [portfolio](https://github.com/juampa95/portfolio) | Full-stack portfolio: React + anime.js, an AI assistant with a command palette and an Express backend on Cloud Run. |
-| [web_scraping](https://github.com/juampa95/web_scraping) | Daily price scraper across every store in the country, automated with AWS Lambda and S3. |
-| [cnn-ocr](https://github.com/juampa95/cnn-ocr) | CNN with an SSD architecture for optical character recognition. |
-| [scraping_licitaciones_gob](https://github.com/juampa95/scraping_licitaciones_gob) | Collection of public tenders from Argentina's government procurement site (COMPRAR). |
