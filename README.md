@@ -9,21 +9,11 @@
 
 ---
 
-I build data platforms and bring AI into production: from ingestion and modeling to services that turn data and conversations into decisions.
+I build data platforms and bring AI into production, turning data into value for business processes.
 
-#### Market One · Data Engineering
-
-- Design and maintain the company's data platform on **Google Cloud and BigQuery**, integrating ERP, CRM and project-management data into a single source of truth.
-- Automate operational and financial processes with scheduled services on **Cloud Run**.
-- Build **MCP servers and AI tooling** that let teams query company data in natural language.
-
-#### Global Solutions · Applied AI
-
-- Build **LLM pipelines** that analyze contact-center conversations at scale, turning call transcripts into structured, typed insights.
-- Use those insights to **prioritize leads and generate AI-written briefs** that support sales teams.
-- Run it in production with scheduled jobs, **Airflow** pipelines and APIs, backed by versioned prompts and schemas, data-privacy safeguards and quality validation.
-
-<sub>Earlier work: web scraping, machine learning (OCR, churn prediction, time series) and APIs with FastAPI and Django.</sub>
+- **Data engineering** on Google Cloud and BigQuery: pipelines, data models and integrations across business systems.
+- **Applied AI**: LLM-powered pipelines, agents and tooling that automate and improve operational processes.
+- **Production-grade services**: scheduled jobs, APIs and orchestration on Cloud Run and Airflow.
 
 ---
 
