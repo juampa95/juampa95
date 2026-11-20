@@ -31,8 +31,9 @@ jobs:
         run: node scripts/generate-metrics.mjs
         env:
           GH_METRICS_TOKEN: ${{ secrets.GH_METRICS_TOKEN }}
-          # Orgs grouped by industry in the monthly chart (login=Label). Company names are never shown.
-          ORG_GROUPS: 'MarketOne-Data=Consulting;MarketOne-Entregables=Consulting;global-solutions-it=Customer experience;seed-core-hub-tech=Customer experience'
+          # Org → label mapping for the monthly chart ("login=Label;..."). Kept as a secret
+          # so org names are not visible in this public repository.
+          ORG_GROUPS: ${{ secrets.ORG_GROUPS }}
 
       # El commit diario además mantiene el repo "activo": GitHub apaga los cron
       # de repos públicos sin actividad en 60 días (le pasó a la Action del portfolio).
