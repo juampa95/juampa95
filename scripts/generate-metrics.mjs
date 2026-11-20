@@ -16,7 +16,7 @@ const token = process.env.GH_METRICS_TOKEN
 if (!token) throw new Error('Falta GH_METRICS_TOKEN')
 
 const OUT_DIR = 'metrics'
-const REST_LABEL = 'Personal y otros'
+const REST_LABEL = 'Personal & other'
 const ORG_GROUPS = new Map(
   (process.env.ORG_GROUPS || '')
     .split(';')
@@ -26,7 +26,7 @@ const ORG_GROUPS = new Map(
 
 // Markup/estilos: inflan los bytes (dashboards, reportes) sin reflejar el trabajo real.
 const EXCLUDED_LANGS = new Set(['HTML', 'CSS', 'SCSS', 'Less'])
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const MESES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 async function gql(query, variables = {}) {
   const r = await fetch('https://api.github.com/graphql', {
@@ -159,7 +159,7 @@ function aggregate(viewer) {
   const langTotal = langAll.reduce((s, l) => s + l.size, 0) || 1
   const top = langAll.slice(0, 6).map((l) => ({ ...l, pct: (l.size / langTotal) * 100 }))
   const rest = langAll.slice(6).reduce((s, l) => s + l.size, 0)
-  if ((rest / langTotal) * 100 >= 0.5) top.push({ name: 'Otros', color: '#6e7681', pct: (rest / langTotal) * 100 })
+  if ((rest / langTotal) * 100 >= 0.5) top.push({ name: 'Other', color: '#6e7681', pct: (rest / langTotal) * 100 })
 
   return {
     total: c.contributionCalendar.totalContributions,
@@ -189,7 +189,7 @@ async function monthlyByCompany(viewer, m) {
   for (const [login, label] of ORG_GROUPS) {
     const id = idByLogin.get(login.toLowerCase())
     if (!id) {
-      console.warn(`::warning::La org ${login} de ORG_GROUPS no es visible con el token; se omite.`)
+      console.warn(`::warning::Org ${login} from ORG_GROUPS is not visible with the token; skipped.`)
       continue
     }
     const series = await monthlyForOrg(id, months)
@@ -228,7 +228,7 @@ const THEMES = {
 
 const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif`
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
-const fmt = (n) => Math.round(n).toLocaleString('es-AR')
+const fmt = (n) => Math.round(n).toLocaleString('en-US')
 
 function frame(t, w, h, title, body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(title)}">
@@ -243,13 +243,13 @@ ${body}
 
 function statsCard(m, t) {
   const items = [
-    ['Contribuciones', fmt(m.total)],
+    ['Contributions', fmt(m.total)],
     ['Commits', fmt(m.commits)],
     ['Pull requests', fmt(m.prs)],
     ['Code reviews', fmt(m.reviews)],
-    ['Repos con commits', fmt(m.privateRepos + m.publicRepos)],
-    ['Días activos', `${fmt(m.activity.activeDays)}`],
-    ['Mejor mes', `${m.activity.bestMonth} · ${fmt(m.activity.bestCount)}`],
+    ['Repositories', fmt(m.privateRepos + m.publicRepos)],
+    ['Active days', `${fmt(m.activity.activeDays)}`],
+    ['Best month', `${m.activity.bestMonth} · ${fmt(m.activity.bestCount)}`],
     ['Issues', fmt(m.issues)],
   ]
   const colW = 210
@@ -261,35 +261,31 @@ function statsCard(m, t) {
 <text x="${x}" y="${y + 20}" font-size="18" font-weight="600" fill="${i < 2 ? t.accent : t.text}">${esc(value)}</text>`
     })
     .join('\n')
-  const note = `<text x="24" y="${72 + 4 * 44 + 4}" font-size="11" fill="${t.muted}">Últimos 12 meses · incluye repos privados (${fmt(m.privateRepos)})</text>`
-  return frame(t, 460, 270, 'Actividad en GitHub', body + '\n' + note)
+  const note = `<text x="24" y="${72 + 4 * 44 + 4}" font-size="11" fill="${t.muted}">Last 12 months · includes private repositories (${fmt(m.privateRepos)})</text>`
+  return frame(t, 460, 270, 'GitHub activity', body + '\n' + note)
 }
 
+/** One horizontal bar per language: name · bar (relative to the top one) · percentage. */
 function langCard(m, t) {
   const w = 460
-  const barX = 24
-  const barW = w - 48
-  let x = barX
-  const segs = m.languages
-    .map((l) => {
-      const sw = (l.pct / 100) * barW
-      const seg = `<rect x="${x.toFixed(2)}" y="56" width="${Math.max(sw, 0).toFixed(2)}" height="10" fill="${l.color}"/>`
-      x += sw
-      return seg
-    })
-    .join('\n')
-  const bar = `<clipPath id="bar"><rect x="${barX}" y="56" width="${barW}" height="10" rx="5"/></clipPath>
-<g clip-path="url(#bar)">${segs}</g>`
-  const legend = m.languages
+  const nameW = 130
+  const pctW = 52
+  const barX = 24 + nameW
+  const barMax = w - 24 - pctW - barX
+  const rowH = 28
+  const top = 62
+  const maxPct = Math.max(...m.languages.map((l) => l.pct), 1)
+  const rows = m.languages
     .map((l, i) => {
-      const lx = 24 + (i % 2) * 210
-      const ly = 96 + Math.floor(i / 2) * 26
-      return `<circle cx="${lx + 5}" cy="${ly - 4}" r="5" fill="${l.color}"/>
-<text x="${lx + 16}" y="${ly}" font-size="13" fill="${t.text}">${esc(l.name)} <tspan fill="${t.muted}">${l.pct.toFixed(1)}%</tspan></text>`
+      const y = top + i * rowH
+      const bw = Math.max(3, (l.pct / maxPct) * barMax)
+      return `<text x="24" y="${y + 9}" font-size="13" fill="${t.text}">${esc(l.name)}</text>
+<rect x="${barX}" y="${y}" width="${barMax}" height="10" rx="5" fill="${t.grid}"/>
+<rect x="${barX}" y="${y}" width="${bw.toFixed(1)}" height="10" rx="5" fill="${l.color}"/>
+<text x="${w - 24}" y="${y + 9}" font-size="12" fill="${t.muted}" text-anchor="end">${l.pct.toFixed(1)}%</text>`
     })
     .join('\n')
-  const rows = Math.ceil(m.languages.length / 2)
-  return frame(t, w, Math.max(270, 96 + rows * 26 + 8), 'Lenguajes más usados', bar + '\n' + legend)
+  return frame(t, w, Math.max(270, top + m.languages.length * rowH + 12), 'Most used languages', rows)
 }
 
 function niceMax(v) {
@@ -363,7 +359,7 @@ function monthlyCard(data, t) {
     })
     .join('\n')
 
-  return frame(t, W, H, 'Contribuciones por mes y por empresa', [legend, grid, bars].join('\n'))
+  return frame(t, W, H, 'Contributions by month and company', [legend, grid, bars].join('\n'))
 }
 
 // ---------------------------------------------------------------- main
@@ -381,8 +377,8 @@ console.log(
 console.log(`por_empresa=${monthly.series.map((s) => `${s.label}:${sum(s.values)}`).join(',')}`)
 if (m.restricted > 0) {
   console.warn(
-    `::warning::Hay ${m.restricted} contribuciones privadas que el token no puede ver en detalle. ` +
-      'Revisá los scopes del token.',
+    `::warning::${m.restricted} private contributions are not visible in detail with this token. ` +
+      'Check the token scopes.',
   )
 }
 
