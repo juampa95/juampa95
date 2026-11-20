@@ -1,0 +1,47 @@
+name: Métricas del perfil
+
+on:
+  schedule:
+    - cron: '30 6 * * *' # todos los días 06:30 UTC (03:30 AR)
+  workflow_dispatch: {} # correrla a mano desde la pestaña Actions
+  push:
+    branches: [main, readme-v2]
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/metrics.yml'
+
+permissions:
+  contents: write # para commitear los SVG
+
+concurrency:
+  group: metrics
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: '22.19.0'
+
+      - name: Generar tarjetas
+        run: node scripts/generate-metrics.mjs
+        env:
+          GH_METRICS_TOKEN: ${{ secrets.GH_METRICS_TOKEN }}
+
+      # El commit diario además mantiene el repo "activo": GitHub apaga los cron
+      # de repos públicos sin actividad en 60 días (le pasó a la Action del portfolio).
+      - name: Commitear si cambió algo
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add metrics
+          if git diff --cached --quiet; then
+            echo "Sin cambios en las métricas"
+            exit 0
+          fi
+          git commit -m 'chore: actualizar métricas del perfil'
+          git push
