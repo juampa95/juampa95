@@ -31,6 +31,8 @@ jobs:
         run: node scripts/generate-metrics.mjs
         env:
           GH_METRICS_TOKEN: ${{ secrets.GH_METRICS_TOKEN }}
+          # Orgs que se muestran con nombre en el gráfico mensual (login=Etiqueta).
+          ORG_GROUPS: 'MarketOne-Data=Market One;MarketOne-Entregables=Market One;global-solutions-it=Global Solutions;seed-core-hub-tech=Seed Core'
 
       # El commit diario además mantiene el repo "activo": GitHub apaga los cron
       # de repos públicos sin actividad en 60 días (le pasó a la Action del portfolio).

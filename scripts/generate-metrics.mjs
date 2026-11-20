@@ -2,11 +2,13 @@
  * Genera las tarjetas SVG de métricas del perfil (incluye repos privados y de orgs).
  *
  * Corre en la GitHub Action. Sin dependencias: solo Node 22 (fetch nativo).
- *   GH_METRICS_TOKEN  PAT clásico con scopes repo, read:org, read:user
- *                     (autorizado por SSO para las orgs que se quieran contar).
+ *   GH_METRICS_TOKEN  PAT clásico con scopes repo, read:org, read:user.
+ *   ORG_GROUPS        "login=Etiqueta;login2=Etiqueta" — orgs que se muestran con
+ *                     nombre en el gráfico mensual (varias orgs pueden compartir etiqueta).
+ *                     Lo que no esté acá cae en "Personal y otros".
  *
- * Privacidad: nunca se escribe el nombre de un repo privado ni de una org.
- * Solo salen totales, lenguajes agregados y el calendario de contribuciones.
+ * Privacidad: nunca se escribe el nombre de un repo privado. De las orgs solo salen
+ * las etiquetas configuradas en ORG_GROUPS.
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 
@@ -14,11 +16,39 @@ const token = process.env.GH_METRICS_TOKEN
 if (!token) throw new Error('Falta GH_METRICS_TOKEN')
 
 const OUT_DIR = 'metrics'
+const REST_LABEL = 'Personal y otros'
+const ORG_GROUPS = new Map(
+  (process.env.ORG_GROUPS || '')
+    .split(';')
+    .map((p) => p.split('=').map((s) => s.trim()))
+    .filter(([k, v]) => k && v),
+)
 
-const GQL = `
+// Markup/estilos: inflan los bytes (dashboards, reportes) sin reflejar el trabajo real.
+const EXCLUDED_LANGS = new Set(['HTML', 'CSS', 'SCSS', 'Less'])
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+async function gql(query, variables = {}) {
+  const r = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'profile-metrics',
+    },
+    body: JSON.stringify({ query, variables }),
+  })
+  if (!r.ok) throw new Error(`GitHub GraphQL ${r.status}: ${await r.text()}`)
+  const json = await r.json()
+  if (json.errors) throw new Error(json.errors.map((e) => e.message).join('; '))
+  return json.data
+}
+
+const MAIN_QUERY = `
 query ($from: DateTime!, $to: DateTime!) {
   viewer {
     login
+    organizations(first: 100) { nodes { id login } }
     contributionsCollection(from: $from, to: $to) {
       totalCommitContributions
       totalPullRequestContributions
@@ -43,30 +73,49 @@ query ($from: DateTime!, $to: DateTime!) {
   }
 }`
 
-async function fetchGitHub() {
+async function fetchMain() {
   const to = new Date()
   const from = new Date(to)
   from.setFullYear(to.getFullYear() - 1)
-  const r = await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'profile-metrics',
-    },
-    body: JSON.stringify({ query: GQL, variables: { from: from.toISOString(), to: to.toISOString() } }),
+  const d = await gql(MAIN_QUERY, { from: from.toISOString(), to: to.toISOString() })
+  return d.viewer
+}
+
+/** Últimos 12 meses calendario (el actual, parcial, incluido). */
+function monthWindows(n = 12) {
+  const now = new Date()
+  const out = []
+  for (let i = n - 1; i >= 0; i--) {
+    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i + 1, 1))
+    const to = i === 0 ? now : new Date(next.getTime() - 1000)
+    out.push({ key: from.toISOString().slice(0, 7), from: from.toISOString(), to: to.toISOString() })
+  }
+  return out
+}
+
+/** Contribuciones por mes de una org (commits + PRs + issues + reviews). */
+async function monthlyForOrg(orgId, months) {
+  const fields = months
+    .map(
+      (m, i) => `m${i}: contributionsCollection(organizationID: "${orgId}", from: "${m.from}", to: "${m.to}") {
+        totalCommitContributions totalPullRequestContributions
+        totalPullRequestReviewContributions totalIssueContributions }`,
+    )
+    .join('\n')
+  const d = await gql(`{ viewer { ${fields} } }`)
+  return months.map((_, i) => {
+    const c = d.viewer[`m${i}`]
+    return (
+      c.totalCommitContributions +
+      c.totalPullRequestContributions +
+      c.totalPullRequestReviewContributions +
+      c.totalIssueContributions
+    )
   })
-  if (!r.ok) throw new Error(`GitHub GraphQL ${r.status}: ${await r.text()}`)
-  const json = await r.json()
-  if (json.errors) throw new Error(json.errors.map((e) => e.message).join('; '))
-  return json.data.viewer
 }
 
 // ---------------------------------------------------------------- agregación
-
-// Markup/estilos: inflan los bytes (dashboards, reportes) sin reflejar el trabajo real.
-const EXCLUDED_LANGS = new Set(['HTML', 'CSS', 'SCSS', 'Less'])
-const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
 function activity(days) {
   const activeDays = days.filter((d) => d.count > 0).length
@@ -77,7 +126,7 @@ function activity(days) {
   }
   const [bestKey, bestCount] = [...byMonth.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0]
   const bestMonth = bestKey ? `${MESES[Number(bestKey.slice(5, 7)) - 1]} ${bestKey.slice(0, 4)}` : '-'
-  return { activeDays, bestMonth, bestCount }
+  return { activeDays, bestMonth, bestCount, byMonth }
 }
 
 function aggregate(viewer) {
@@ -123,27 +172,63 @@ function aggregate(viewer) {
     publicRepos,
     orgCount: orgs.size,
     activity: activity(days),
-    weeks: c.contributionCalendar.weeks,
     languages: top,
   }
 }
+
+/**
+ * Serie mensual por empresa. El calendario da el total de cada mes; lo que no
+ * corresponde a una org configurada queda en "Personal y otros".
+ */
+async function monthlyByCompany(viewer, m) {
+  const months = monthWindows()
+  const idByLogin = new Map(viewer.organizations.nodes.map((o) => [o.login.toLowerCase(), o.id]))
+  const labels = [...new Set(ORG_GROUPS.values())]
+  const byLabel = new Map(labels.map((l) => [l, months.map(() => 0)]))
+
+  for (const [login, label] of ORG_GROUPS) {
+    const id = idByLogin.get(login.toLowerCase())
+    if (!id) {
+      console.warn(`::warning::La org ${login} de ORG_GROUPS no es visible con el token; se omite.`)
+      continue
+    }
+    const series = await monthlyForOrg(id, months)
+    const acc = byLabel.get(label)
+    series.forEach((v, i) => (acc[i] += v))
+  }
+
+  const rest = months.map((mo, i) => {
+    const total = m.activity.byMonth.get(mo.key) || 0
+    const orgsSum = labels.reduce((s, l) => s + byLabel.get(l)[i], 0)
+    return Math.max(0, total - orgsSum)
+  })
+
+  const series = labels
+    .map((label) => ({ label, values: byLabel.get(label) }))
+    .filter((s) => s.values.some((v) => v > 0))
+    .sort((a, b) => sum(b.values) - sum(a.values))
+  if (rest.some((v) => v > 0)) series.push({ label: REST_LABEL, values: rest, rest: true })
+  return { months: months.map((mo) => mo.key), series }
+}
+
+const sum = (arr) => arr.reduce((s, v) => s + v, 0)
 
 // ---------------------------------------------------------------- SVG
 
 const THEMES = {
   dark: {
-    bg: '#0d1117', border: '#30363d', text: '#e6edf3', muted: '#8b949e', accent: '#a597ff',
-    heat: ['#161b22', '#2e2a6b', '#4b3fb0', '#6e5ce6', '#a597ff'],
+    bg: '#0d1117', border: '#30363d', text: '#e6edf3', muted: '#8b949e', accent: '#a597ff', grid: '#21262d',
+    series: ['#a597ff', '#3fb8af', '#f0a04b', '#e8699a', '#58a6ff'], rest: '#484f58',
   },
   light: {
-    bg: '#ffffff', border: '#d0d7de', text: '#1f2328', muted: '#656d76', accent: '#5a46d6',
-    heat: ['#ebedf0', '#d4ccff', '#a597ff', '#6e5ce6', '#4b3fb0'],
+    bg: '#ffffff', border: '#d0d7de', text: '#1f2328', muted: '#656d76', accent: '#5a46d6', grid: '#eaeef2',
+    series: ['#5a46d6', '#1f8a82', '#c46f12', '#c2386f', '#0969da'], rest: '#afb8c1',
   },
 }
 
 const FONT = `-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif`
 const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`)
-const fmt = (n) => n.toLocaleString('es-AR')
+const fmt = (n) => Math.round(n).toLocaleString('es-AR')
 
 function frame(t, w, h, title, body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(title)}">
@@ -204,64 +289,100 @@ function langCard(m, t) {
     })
     .join('\n')
   const rows = Math.ceil(m.languages.length / 2)
-  return frame(t, w, 96 + rows * 26 + 8, 'Lenguajes más usados', bar + '\n' + legend)
+  return frame(t, w, Math.max(270, 96 + rows * 26 + 8), 'Lenguajes más usados', bar + '\n' + legend)
 }
 
-function heatmapCard(m, t) {
-  const cell = 11
-  const gap = 3
-  const step = cell + gap
-  const left = 24
-  const top = 64
-  const level = (n) => (n === 0 ? 0 : n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4)
-  const cells = []
-  const months = []
-  let lastMonth = -1
-  m.weeks.forEach((w, wi) => {
-    const firstDay = w.contributionDays[0]
-    const month = Number(firstDay.date.slice(5, 7)) - 1
-    if (month !== lastMonth && wi < m.weeks.length - 2) {
-      months.push(`<text x="${left + wi * step}" y="${top - 8}" font-size="10" fill="${t.muted}">${MESES[month]}</text>`)
-      lastMonth = month
-    }
-    for (const d of w.contributionDays) {
-      const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay()
-      cells.push(
-        `<rect x="${left + wi * step}" y="${top + dow * step}" width="${cell}" height="${cell}" rx="2" fill="${t.heat[level(d.contributionCount)]}"/>`,
-      )
-    }
-  })
-  const width = left * 2 + m.weeks.length * step - gap
-  const legendY = top + 7 * step + 18
-  const right = width - left // borde derecho de la grilla
-  const masW = 22 // ancho reservado para el texto "Más"
-  const cellsStart = right - masW - 5 * step
-  const legend = [
-    `<text x="${cellsStart - 6}" y="${legendY + 9}" font-size="10" fill="${t.muted}" text-anchor="end">Menos</text>`,
-    ...t.heat.map(
-      (c, i) => `<rect x="${cellsStart + i * step}" y="${legendY}" width="${cell}" height="${cell}" rx="2" fill="${c}"/>`,
-    ),
-    `<text x="${right}" y="${legendY + 9}" font-size="10" fill="${t.muted}" text-anchor="end">Más</text>`,
-    `<text x="${left}" y="${legendY + 9}" font-size="11" fill="${t.muted}">${fmt(m.total)} contribuciones en el último año</text>`,
-  ]
-  return frame(t, width, legendY + 30, 'Calendario de contribuciones', [...months, ...cells, ...legend].join('\n'))
+function niceMax(v) {
+  if (v <= 0) return 10
+  const p = 10 ** Math.floor(Math.log10(v))
+  for (const k of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (k * p >= v) return k * p
+  return 10 * p
+}
+
+function monthlyCard(data, t) {
+  const W = 936
+  const H = 320
+  const left = 56
+  const right = 24
+  const top = 92
+  const bottom = 44
+  const plotW = W - left - right
+  const plotH = H - top - bottom
+  const n = data.months.length
+  const slot = plotW / n
+  const barW = Math.min(44, slot * 0.62)
+  const color = (s, i) => (s.rest ? t.rest : t.series[i % t.series.length])
+
+  const totals = data.months.map((_, i) => sum(data.series.map((s) => s.values[i])))
+  const max = niceMax(Math.max(...totals))
+  const y = (v) => top + plotH - (v / max) * plotH
+
+  // Leyenda en una fila bajo el título.
+  let lx = 24
+  const legend = data.series
+    .map((s, i) => {
+      const label = `${s.label}`
+      const total = fmt(sum(s.values))
+      const item = `<rect x="${lx}" y="52" width="10" height="10" rx="2" fill="${color(s, i)}"/>
+<text x="${lx + 16}" y="61" font-size="12" fill="${t.text}">${esc(label)} <tspan fill="${t.muted}">${total}</tspan></text>`
+      lx += 16 + (label.length + total.length + 1) * 7 + 22
+      return item
+    })
+    .join('\n')
+
+  const grid = [0, 0.25, 0.5, 0.75, 1]
+    .map((f) => {
+      const v = max * f
+      return `<line x1="${left}" x2="${W - right}" y1="${y(v)}" y2="${y(v)}" stroke="${t.grid}"/>
+<text x="${left - 8}" y="${y(v) + 4}" font-size="10" fill="${t.muted}" text-anchor="end">${fmt(v)}</text>`
+    })
+    .join('\n')
+
+  const bars = data.months
+    .map((key, i) => {
+      const cx = left + slot * i + slot / 2
+      const x0 = cx - barW / 2
+      let acc = 0
+      const segs = data.series
+        .map((s, si) => {
+          const v = s.values[i]
+          if (!v) return ''
+          const yTop = y(acc + v)
+          const h = y(acc) - yTop
+          acc += v
+          return `<rect x="${x0.toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(h, 0).toFixed(1)}" fill="${color(s, si)}"/>`
+        })
+        .join('')
+      const mes = MESES[Number(key.slice(5, 7)) - 1]
+      const anio = key.slice(2, 4)
+      const label = `<text x="${cx}" y="${H - bottom + 18}" font-size="11" fill="${t.muted}" text-anchor="middle">${mes} ${anio}</text>`
+      const tot = totals[i]
+        ? `<text x="${cx}" y="${y(totals[i]) - 6}" font-size="10" fill="${t.muted}" text-anchor="middle">${fmt(totals[i])}</text>`
+        : ''
+      return segs + label + tot
+    })
+    .join('\n')
+
+  return frame(t, W, H, 'Contribuciones por mes y por empresa', [legend, grid, bars].join('\n'))
 }
 
 // ---------------------------------------------------------------- main
 
-const viewer = await fetchGitHub()
+const viewer = await fetchMain()
 const m = aggregate(viewer)
+const monthly = await monthlyByCompany(viewer, m)
 
-// Log de control: solo conteos, nunca nombres.
+// Log de control (el log es público): conteos y etiquetas configuradas, nunca repos.
 console.log(
   `contribuciones=${m.total} commits=${m.commits} prs=${m.prs} reviews=${m.reviews} ` +
     `repos_privados=${m.privateRepos} repos_publicos=${m.publicRepos} orgs=${m.orgCount} ` +
     `dias_activos=${m.activity.activeDays} lenguajes=${m.languages.map((l) => `${l.name}:${l.pct.toFixed(0)}%`).join(',')}`,
 )
+console.log(`por_empresa=${monthly.series.map((s) => `${s.label}:${sum(s.values)}`).join(',')}`)
 if (m.restricted > 0) {
   console.warn(
     `::warning::Hay ${m.restricted} contribuciones privadas que el token no puede ver en detalle. ` +
-      'Revisá los scopes del token y su autorización SSO para la org.',
+      'Revisá los scopes del token.',
   )
 }
 
@@ -269,6 +390,6 @@ await mkdir(OUT_DIR, { recursive: true })
 for (const [name, t] of Object.entries(THEMES)) {
   await writeFile(`${OUT_DIR}/stats-${name}.svg`, statsCard(m, t))
   await writeFile(`${OUT_DIR}/languages-${name}.svg`, langCard(m, t))
-  await writeFile(`${OUT_DIR}/heatmap-${name}.svg`, heatmapCard(m, t))
+  await writeFile(`${OUT_DIR}/monthly-${name}.svg`, monthlyCard(monthly, t))
 }
 console.log(`SVGs escritos en ${OUT_DIR}/`)

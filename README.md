@@ -30,11 +30,11 @@
 </p>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="metrics/heatmap-dark.svg">
-  <img src="metrics/heatmap-light.svg" alt="Calendario de contribuciones">
+  <source media="(prefers-color-scheme: dark)" srcset="metrics/monthly-dark.svg">
+  <img src="metrics/monthly-light.svg" alt="Contribuciones por mes y por empresa">
 </picture>
 
-<sub>Incluye la actividad en repos privados y de organizaciones, anonimizada. Se actualiza todos los días con una GitHub Action.</sub>
+<sub>Incluye la actividad en repos privados y de organizaciones (sin exponer nombres de repos). Se actualiza todos los días con una GitHub Action.</sub>
 
 ### Proyectos públicos
 
