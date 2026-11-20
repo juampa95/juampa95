@@ -13,10 +13,10 @@
 <text x="234" y="136" font-size="18" font-weight="600" fill="#1f2328">1</text>
 <text x="24" y="160" font-size="12" fill="#656d76">Repos con commits</text>
 <text x="24" y="180" font-size="18" font-weight="600" fill="#1f2328">37</text>
-<text x="234" y="160" font-size="12" fill="#656d76">Racha actual</text>
-<text x="234" y="180" font-size="18" font-weight="600" fill="#1f2328">5 días</text>
-<text x="24" y="204" font-size="12" fill="#656d76">Racha más larga</text>
-<text x="24" y="224" font-size="18" font-weight="600" fill="#1f2328">6 días</text>
+<text x="234" y="160" font-size="12" fill="#656d76">Días activos</text>
+<text x="234" y="180" font-size="18" font-weight="600" fill="#1f2328">196</text>
+<text x="24" y="204" font-size="12" fill="#656d76">Mejor mes</text>
+<text x="24" y="224" font-size="18" font-weight="600" fill="#1f2328">oct 2026 · 648</text>
 <text x="234" y="204" font-size="12" fill="#656d76">Issues</text>
 <text x="234" y="224" font-size="18" font-weight="600" fill="#1f2328">289</text>
 <text x="24" y="252" font-size="11" fill="#656d76">Últimos 12 meses · incluye repos privados (34)</text>
