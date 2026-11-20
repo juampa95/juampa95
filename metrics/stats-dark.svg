@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="270" viewBox="0 0 460 270" role="img" aria-label="Actividad en GitHub">
+<title>Actividad en GitHub</title>
+<style>text{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif}</style>
+<rect x="0.5" y="0.5" width="459" height="269" rx="10" fill="#0d1117" stroke="#30363d"/>
+<text x="24" y="36" font-size="16" font-weight="600" fill="#e6edf3">Actividad en GitHub</text>
+<text x="24" y="72" font-size="12" fill="#8b949e">Contribuciones</text>
+<text x="24" y="92" font-size="18" font-weight="600" fill="#a597ff">3.044</text>
+<text x="234" y="72" font-size="12" fill="#8b949e">Commits</text>
+<text x="234" y="92" font-size="18" font-weight="600" fill="#a597ff">2.359</text>
+<text x="24" y="116" font-size="12" fill="#8b949e">Pull requests</text>
+<text x="24" y="136" font-size="18" font-weight="600" fill="#e6edf3">383</text>
+<text x="234" y="116" font-size="12" fill="#8b949e">Code reviews</text>
+<text x="234" y="136" font-size="18" font-weight="600" fill="#e6edf3">1</text>
+<text x="24" y="160" font-size="12" fill="#8b949e">Repos con commits</text>
+<text x="24" y="180" font-size="18" font-weight="600" fill="#e6edf3">37</text>
+<text x="234" y="160" font-size="12" fill="#8b949e">Racha actual</text>
+<text x="234" y="180" font-size="18" font-weight="600" fill="#e6edf3">5 días</text>
+<text x="24" y="204" font-size="12" fill="#8b949e">Racha más larga</text>
+<text x="24" y="224" font-size="18" font-weight="600" fill="#e6edf3">6 días</text>
+<text x="234" y="204" font-size="12" fill="#8b949e">Issues</text>
+<text x="234" y="224" font-size="18" font-weight="600" fill="#e6edf3">289</text>
+<text x="24" y="252" font-size="11" fill="#8b949e">Últimos 12 meses · incluye repos privados (34)</text>
+</svg>
