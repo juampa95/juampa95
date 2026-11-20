@@ -110,7 +110,7 @@ function aggregate(viewer) {
   const langTotal = langAll.reduce((s, l) => s + l.size, 0) || 1
   const top = langAll.slice(0, 6).map((l) => ({ ...l, pct: (l.size / langTotal) * 100 }))
   const rest = langAll.slice(6).reduce((s, l) => s + l.size, 0)
-  if (rest > 0) top.push({ name: 'Otros', color: '#6e7681', pct: (rest / langTotal) * 100 })
+  if ((rest / langTotal) * 100 >= 0.5) top.push({ name: 'Otros', color: '#6e7681', pct: (rest / langTotal) * 100 })
 
   return {
     total: c.contributionCalendar.totalContributions,
