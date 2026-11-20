@@ -64,22 +64,20 @@ async function fetchGitHub() {
 
 // ---------------------------------------------------------------- agregación
 
-function streaks(days) {
-  let longest = 0
-  let run = 0
+// Markup/estilos: inflan los bytes (dashboards, reportes) sin reflejar el trabajo real.
+const EXCLUDED_LANGS = new Set(['HTML', 'CSS', 'SCSS', 'Less'])
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+function activity(days) {
+  const activeDays = days.filter((d) => d.count > 0).length
+  const byMonth = new Map()
   for (const d of days) {
-    run = d.count > 0 ? run + 1 : 0
-    longest = Math.max(longest, run)
+    const k = d.date.slice(0, 7)
+    byMonth.set(k, (byMonth.get(k) || 0) + d.count)
   }
-  // Racha actual: si hoy todavía no hay contribuciones, se cuenta desde ayer.
-  let i = days.length - 1
-  if (i >= 0 && days[i].count === 0) i--
-  let current = 0
-  while (i >= 0 && days[i].count > 0) {
-    current++
-    i--
-  }
-  return { current, longest }
+  const [bestKey, bestCount] = [...byMonth.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0]
+  const bestMonth = bestKey ? `${MESES[Number(bestKey.slice(5, 7)) - 1]} ${bestKey.slice(0, 4)}` : '-'
+  return { activeDays, bestMonth, bestCount }
 }
 
 function aggregate(viewer) {
@@ -97,9 +95,14 @@ function aggregate(viewer) {
     if (repo.isPrivate) privateRepos++
     else publicRepos++
     if (repo.owner.login !== viewer.login) orgs.add(repo.owner.login)
-    for (const e of repo.languages?.edges ?? []) {
+    // Cada repo reparte sus commits según la proporción de cada lenguaje en ese repo:
+    // así pesa más donde más trabajaste, no el repo con más bytes.
+    const edges = (repo.languages?.edges ?? []).filter((e) => !EXCLUDED_LANGS.has(e.node.name))
+    const repoBytes = edges.reduce((s, e) => s + e.size, 0)
+    if (!repoBytes) continue
+    for (const e of edges) {
       const prev = lang.get(e.node.name) ?? { name: e.node.name, color: e.node.color || '#8b949e', size: 0 }
-      prev.size += e.size
+      prev.size += item.contributions.totalCount * (e.size / repoBytes)
       lang.set(e.node.name, prev)
     }
   }
@@ -119,7 +122,7 @@ function aggregate(viewer) {
     privateRepos,
     publicRepos,
     orgCount: orgs.size,
-    streak: streaks(days),
+    activity: activity(days),
     weeks: c.contributionCalendar.weeks,
     languages: top,
   }
@@ -160,8 +163,8 @@ function statsCard(m, t) {
     ['Pull requests', fmt(m.prs)],
     ['Code reviews', fmt(m.reviews)],
     ['Repos con commits', fmt(m.privateRepos + m.publicRepos)],
-    ['Racha actual', `${fmt(m.streak.current)} días`],
-    ['Racha más larga', `${fmt(m.streak.longest)} días`],
+    ['Días activos', `${fmt(m.activity.activeDays)}`],
+    ['Mejor mes', `${m.activity.bestMonth} · ${fmt(m.activity.bestCount)}`],
     ['Issues', fmt(m.issues)],
   ]
   const colW = 210
@@ -211,8 +214,6 @@ function heatmapCard(m, t) {
   const left = 24
   const top = 64
   const level = (n) => (n === 0 ? 0 : n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4)
-  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-
   const cells = []
   const months = []
   let lastMonth = -1
@@ -255,7 +256,7 @@ const m = aggregate(viewer)
 console.log(
   `contribuciones=${m.total} commits=${m.commits} prs=${m.prs} reviews=${m.reviews} ` +
     `repos_privados=${m.privateRepos} repos_publicos=${m.publicRepos} orgs=${m.orgCount} ` +
-    `racha=${m.streak.current}/${m.streak.longest} lenguajes=${m.languages.length}`,
+    `dias_activos=${m.activity.activeDays} lenguajes=${m.languages.map((l) => `${l.name}:${l.pct.toFixed(0)}%`).join(',')}`,
 )
 if (m.restricted > 0) {
   console.warn(
