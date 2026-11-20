@@ -31,7 +31,7 @@ I build data platforms and bring AI into production, turning data into value for
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="metrics/monthly-dark.svg">
-    <img src="metrics/monthly-light.svg" alt="Contributions by month and company">
+    <img src="metrics/monthly-light.svg" alt="Contributions by month and industry">
   </picture>
 </p>
 

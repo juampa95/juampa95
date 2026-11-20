@@ -365,7 +365,7 @@ function monthlyCard(data, t) {
     })
     .join('\n')
 
-  return frame(t, W, H, 'Contributions by month and company', [legend, grid, bars].join('\n'))
+  return frame(t, W, H, 'Contributions by month and industry', [legend, grid, bars].join('\n'))
 }
 
 // ---------------------------------------------------------------- main
