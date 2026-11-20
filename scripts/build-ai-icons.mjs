@@ -17,7 +17,7 @@ const ICONS = [
   ['langgraph', 'LangGraph', '#7FC8FF'],
   ['crewai', 'CrewAI', '#FF5A50'],
   ['googlebigquery', 'BigQuery', '#669DF6'],
-  ['apacheairflow', 'Apache Airflow', '#017CEE'],
+  ['apacheairflow', 'Apache Airflow', '#4DA3FF'], // brand #017CEE is too dark on the tile
 ]
 
 const TILE = 256

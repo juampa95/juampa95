@@ -1,4 +1,4 @@
-name: Métricas del perfil
+name: Profile metrics
 
 on:
   schedule:
@@ -45,5 +45,5 @@ jobs:
             echo "Sin cambios en las métricas"
             exit 0
           fi
-          git commit -m 'chore: actualizar métricas del perfil'
+          git commit -m 'chore: update profile metrics'
           git push

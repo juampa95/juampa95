@@ -275,13 +275,19 @@ function langCard(m, t) {
   const rowH = 28
   const top = 62
   const maxPct = Math.max(...m.languages.map((l) => l.pct), 1)
+  // Some language colors (e.g. PowerShell navy) vanish on a dark background.
+  const visible = (hex) => {
+    const n = parseInt(hex.slice(1), 16)
+    const lum = (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255
+    return t.bg === THEMES.dark.bg && lum < 0.25 ? t.muted : hex
+  }
   const rows = m.languages
     .map((l, i) => {
       const y = top + i * rowH
       const bw = Math.max(3, (l.pct / maxPct) * barMax)
       return `<text x="24" y="${y + 9}" font-size="13" fill="${t.text}">${esc(l.name)}</text>
 <rect x="${barX}" y="${y}" width="${barMax}" height="10" rx="5" fill="${t.grid}"/>
-<rect x="${barX}" y="${y}" width="${bw.toFixed(1)}" height="10" rx="5" fill="${l.color}"/>
+<rect x="${barX}" y="${y}" width="${bw.toFixed(1)}" height="10" rx="5" fill="${visible(l.color)}"/>
 <text x="${w - 24}" y="${y + 9}" font-size="12" fill="${t.muted}" text-anchor="end">${l.pct.toFixed(1)}%</text>`
     })
     .join('\n')
